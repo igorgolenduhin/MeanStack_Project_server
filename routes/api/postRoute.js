@@ -8,7 +8,9 @@ const extractFile = require('../../middleware/file');
 
 router.get('/', PostController.getAllPosts);
 
-router.post('/', auth, extractFile,
+router.get('/:postID', PostController.getPostById);
+
+router.post('/', auth,
     [
         check('title', 'Title is required').not().isEmpty(),
         check('country', 'Choose the country').not().isEmpty(),

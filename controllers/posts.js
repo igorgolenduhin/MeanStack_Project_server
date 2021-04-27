@@ -1,6 +1,13 @@
 const { validationResult } = require('express-validator');
-
 let Post = require('../models/Post');
+let User = require('../models/User');
+var ImageKit = require("imagekit");
+
+var imagekit = new ImageKit({
+    publicKey : "public_T51ZcieHu28tw3BLLJOsOlvmXg8=",
+    privateKey : "private_mgpxu3TS6vhtg66fad4avcyoA4A=",
+    urlEndpoint : "https://ik.imagekit.io/g56fnhdh8px/"
+});
 
 exports.getAllPosts = async (req, res) => {
     try {
@@ -8,6 +15,18 @@ exports.getAllPosts = async (req, res) => {
         res.send(posts);
     } catch (err) {
         res.status(500).send('Cannot get posts');
+    }
+};
+
+exports.getPostById = async (req, res) => {
+    try {
+        const post = await Post.findById(req.params.postID);
+        if (!post) {
+        return res.status(404).json({msg: 'Post not found'});
+        }
+        res.status(200).json({post: post});
+    } catch (err) {
+        res.status(500).send('Server error');
     }
 };
 
@@ -30,10 +49,21 @@ exports.createPost = async (req, res) => {
             username: req.user.username
         });
 
-        if (req.file) {
-            const url = req.protocol + '://' + req.get('host');
-            newPost.imagePath = url + '/images/' + req.file.filename;
+        if (req.body.image) {
+            const resp = await imagekit.upload({
+                file : req.body.image,
+                fileName : Date.now(),
+            });
+
+            newPost.image = {
+                url: resp.url,
+                fileId: resp.fileId
+            }
+
+            console.log(resp);
         }
+
+
 
         const result = await newPost.save();
         res.status(201).send(result);
@@ -48,12 +78,12 @@ exports.deletePost = async (req, res) => {
         if (!deletePost) {
             res.status(404).send('Post not found');
         }
-        if (deletePost.user != req.user.id) {
+        if (deletePost.userId != req.user.id) {
             res.status(404).send("You don't have permission to delete this post");
         }
         else {
             const result = await Post.findByIdAndDelete(req.body.id);
-            res.send(result);
+            res.status(204).json({msg: 'Post was successfully deleted'});
         }
 
     } catch (err) {
@@ -67,7 +97,7 @@ exports.editPost = async (req, res) => {
         if (!updatePost) {
             res.status(404).send('Post not found');
         }
-        if (updatePost.user != req.user.id) {
+        if (updatePost.userId != req.user.id) {
             res.status(404).send("You don't have permission to edit post");
         } else {
             updatePost.title = req.body.title;
@@ -80,8 +110,8 @@ exports.editPost = async (req, res) => {
         updatePost.lng = req.body.lng;
         updatePost.category = req.body.category;
 
-            await updatePost.save();
-            res.send(updatePost);
+        await updatePost.save();
+        res.status(200).json({msg: 'Post was successfully edited'});
         }
     } catch (err) {
         res.status(500).send('Something is wrong with editing');
@@ -119,10 +149,15 @@ exports.likePost = async (req, res) => {
 
 exports.getUsersPosts = async (req, res) => {
     try {
+        let user = await User.findById(req.params.userId);
+        if(!user){
+            res.status(400).json({msg: 'User was not found'});
+            return;
+        }
         const posts = await Post.find({
             userId: req.params.userId
         }).exec();
-        res.status(200).send(posts);
+        res.status(200).json({username: user.username, posts: posts});
     } catch {
         res.status(500).send('Cannot get posts of this user');
     }

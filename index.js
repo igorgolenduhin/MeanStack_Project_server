@@ -5,16 +5,16 @@ const postRoute = require('./routes/api/postRoute');
 const commentRoute = require('./routes/api/commentRoute');
 const messageRoute = require('./routes/api/messageRoute');
 const categoryRoutes = require('./routes/api/categorieRoute');
-const filterPostRoutes = require('./routes/api/filterPost');
+const filterPostRoutes = require('./routes/api/filterPostRoute');
 const connectDB = require('./config/connectDB');
-const trendingRoutes=require('./routes/api/trending');
+const trendingRoutes=require('./routes/api/trendingRoute');
 
 
 const app = express();
 
 connectDB();
 
-app.use(express.json());
+app.use(express.json({limit: '50mb'}));
 app.use(express.static('images'));
 //allow cross origin requests
 app.use(cors());
@@ -29,6 +29,14 @@ app.use('/api/filterPostByCategory',filterPostRoutes);
 app.use('/api/top10',trendingRoutes);
 //app.use('/api/contactus', contactUsRoutes);
 //app.use('/api/aboutus', aboutUsRoutes);
+
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static('client/build'));
+  const path = require('path');
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
+  });
+}
 
 
 let port = process.env.PORT || 4000;
